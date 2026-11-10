@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  id                  String   @id @default("default")
+  systemName          String   @default("Gestão Financeira & Dívidas")
+  creditorName        String   @default("Minha Empresa / Gestor")
+  creditorPixKey      String   @default("contato@gestaofinanceira.com")
+  creditorPixType     String   @default("CHAVE_ALEATORIA")
+  defaultAmortization String   @default("INTEREST_FIRST")
+  defaultInterestType String   @default("COMPOUND")
+  incompleteMonthRule String   @default("PRO_RATA")
+  whatsappTemplate    String   @default("Olá {nome}, tudo bem? Consta em nosso sistema uma pendência no valor de R$ {saldo} referente ao empréstimo ({descricao}). Favor entrar em contato para combinarmos o acerto via Chave PIX: {chavePix}. Obrigado!")
+  updatedAt           DateTime @updatedAt
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  name      String
+  cpf       String?
+  phone     String
+  email     String?
+  address   String?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  loans     Loan[]
+  payments  Payment[]
+}
+
+model Loan {
+  id                  String                  @id @default(cuid())
+  customerId          String
+  customer            Customer                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  code                String                  @unique
+  originalAmount      Float
+  loanDate            DateTime
+  monthlyInterestRate Float
+  interestType        String                  @default("COMPOUND") // SIMPLE | COMPOUND
+  dueDate             DateTime
+  billingDay          Int                     @default(10)
+  amortizationRule    String                  @default("INTEREST_FIRST") // INTEREST_FIRST | PRINCIPAL_FIRST
+  incompleteMonthRule String                  @default("PRO_RATA") // PRO_RATA | FULL_MONTH
+  description         String?
+  status              String                  @default("OPEN") // OPEN | PARTIALLY_PAID | PAID | OVERDUE
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  payments            Payment[]
+  calculationLogs     CalculationHistoryLog[]
+}
+
+model Payment {
+  id               String   @id @default(cuid())
+  loanId           String
+  loan             Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  receiptNumber    String   @unique
+  paymentDate      DateTime
+  amount           Float
+  principalPaid    Float    @default(0)
+  interestPaid     Float    @default(0)
+  remainingBalance Float    @default(0)
+  paymentMethod    String   @default("PIX") // PIX | DINHEIRO | TRANSFERENCIA | CARTAO | BOLETO | OUTRO
+  notes            String?
+  createdAt        DateTime @default(now())
+}
+
+model CalculationHistoryLog {
+  id                 String   @id @default(cuid())
+  loanId             String
+  loan               Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  calculatedAt       DateTime @default(now())
+  principalBase      Float
+  interestAccrued    Float
+  totalUpdatedAmount Float
+  monthsElapsed      Float
+  daysLate           Int      @default(0)
+  metadataJson       String?
+}
+
